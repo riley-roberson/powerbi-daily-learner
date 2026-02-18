@@ -82,7 +82,7 @@ One-to-many is the standard and ideal relationship. The dimension table (one sid
 
 Many-to-many relationships occur when neither side has unique values for the join column. For example, if multiple budget rows exist per product AND multiple sales rows exist per product, that's many-to-many. Power BI handles these but they can produce unexpected results if not managed carefully.
 
-Bi-directional cross-filtering makes the filter flow both ways — from fact to dimension AND dimension to fact. This sounds powerful but is dangerous: it can cause ambiguous filter paths, performance issues, and unexpected results. Use it sparingly, only when truly needed.
+Bi-directional cross-filtering makes the filter flow both ways — from fact to dimension AND dimension to fact. This sounds powerful but is dangerous: it can cause ambiguous filter paths, performance degradation, incorrect results due to circular dependencies, and it makes the model harder to reason about. Avoid setting bi-directional on the relationship itself. If you need reverse filtering for a specific calculation, use CROSSFILTER() inside a measure — this limits the effect to that one measure rather than affecting the entire model.
 
 The CROSSFILTER function lets you override the default cross-filter direction inside a specific measure, without changing the model relationship permanently. This is safer than setting bi-directional on the relationship itself.`,
     conceptKeyTakeaways: [
@@ -193,7 +193,7 @@ A calculated column is computed once, at data refresh time, for every row in the
 
 A measure is computed at query time, dynamically, based on the current filter context. It is NOT stored — it's calculated on the fly whenever a visual needs it. Measures respond to slicers, row/column groupings, and page filters. This makes them perfect for aggregations, percentages, and any value that should change as the user interacts with the report.
 
-The rule of thumb: if the value should be the same regardless of how the user slices the data, it might be a calculated column. If the value should change when the user applies a filter or drills down, it must be a measure. In practice, about 90% of your DAX should be measures.
+The rule of thumb: if the value depends on how the user slices, filters, or interacts with the report, it must be a measure. Calculated columns are appropriate in limited cases: when you need the value for slicing/filtering, when it's used in a relationship, or when it's a row-level attribute that doesn't depend on aggregation. In practice, the vast majority of your DAX should be measures — prefer measures over calculated columns whenever possible. A common mistake is creating calculated columns for values that should be measures, which wastes memory and produces incorrect results when filters change.
 
 DIVIDE() is a best practice over using the / operator. It handles division by zero gracefully by returning BLANK (or an alternate value you specify) instead of throwing an error. Always use DIVIDE for ratios and percentages.`,
     conceptKeyTakeaways: [
@@ -247,20 +247,20 @@ Avg Order Value: $283.33 (Total Sales / Total Orders, changes with filters)`,
     day: 5,
     tier: "foundation",
     title: "Filter Context Deep Dive",
-    conceptLesson: `Filter context is the single most important concept in DAX. Every cell in every visual has a filter context — the combination of all active filters that determine which rows of data are visible.
+    conceptLesson: `Filter context is the single most important concept in DAX. Every cell in every visual has a filter context — a set of filter conditions applied to columns of the model that determine which rows participate in a calculation.
 
-When you place Product Category on rows and Total Sales as a value in a matrix, each row has a different filter context. The "Electronics" row only sees sales where Products[Category] = "Electronics". The grand total row has no category filter — it sees all sales. Your measure doesn't change; the filter context changes.
+When you place Product Category on rows and Total Sales as a value in a matrix, each row has a different filter context. The "Electronics" row has a filter on Products[Category] = "Electronics", so only matching sales rows participate. The grand total row has no category filter — all sales rows participate. Your measure doesn't change; the filter context changes.
 
-Filter context comes from multiple sources: visual row/column headers, slicers, page-level filters, report-level filters, and CALCULATE. They all combine (intersect) to narrow down which rows are included in the calculation.
+Filter context comes from multiple sources: visual row/column headers, slicers, page-level filters, report-level filters, and CALCULATE. They all combine (intersect) to narrow down which rows participate in the calculation.
 
-ALL() is your first tool for manipulating filter context. ALL(TableOrColumn) removes all filters from a table or column. This is essential for "percent of total" calculations: you need the filtered total (current context) divided by the unfiltered total (ALL removes filters).
+ALL() is your first tool for manipulating filter context. When used as a CALCULATE modifier, ALL(TableOrColumn) removes all filters from a table or column. This is essential for "percent of total" calculations: you need the filtered total (current context) divided by the unfiltered total (ALL removes filters). Note: in modern DAX, REMOVEFILTERS() is the preferred way to remove filters inside CALCULATE — it's semantically clearer. ALL used as a table function (returning a table) is a different concept.
 
-The pattern DIVIDE([Total Sales], CALCULATE([Total Sales], ALL(Products))) gives you each row's percentage of the grand total. CALCULATE with ALL overrides the current filter on Products, giving you the total across all products, while the numerator respects the current filter.`,
+The pattern DIVIDE([Total Sales], CALCULATE([Total Sales], ALL(Products))) gives you each row's percentage of the grand total. CALCULATE creates a new filter context where all filters on Products are removed, giving you the total across all products, while the numerator respects the current filter.`,
     conceptKeyTakeaways: [
-      "Filter context = the combination of all active filters (slicers, visual groupings, page filters)",
+      "Filter context = a set of filter conditions on columns that determine which rows participate in a calculation",
       "Every cell in a visual has a unique filter context",
-      "ALL() removes filters from a table or column — essential for percentages and ratios",
-      "CALCULATE modifies the filter context before evaluating an expression",
+      "ALL() removes filters from a table or column — essential for percentages and ratios (REMOVEFILTERS is the modern alternative)",
+      "CALCULATE creates a new filter context and evaluates an expression within it",
     ],
     daxScenario: "The VP of Sales wants to see each product category's contribution as a percentage of total company revenue. The percentage should update when other slicers are applied (like date range) but always show the category's share of the visible total.",
     daxInstructions: `Write a percent of total measure:
@@ -311,9 +311,9 @@ In a calculated column, DAX evaluates the expression for each row of the table. 
 
 EARLIER() is a function that references the value from an outer row context when you have nested iterations. Imagine you're in a calculated column on the Products table, and inside that expression you use FILTER(Products, ...). Now you have two row contexts — the outer one (the current row being calculated) and the inner one (the row being evaluated by FILTER). EARLIER(Products[ListPrice]) refers to the outer row's ListPrice.
 
-While EARLIER works, modern DAX practice often replaces it with VAR. You capture the outer value in a variable before entering the inner iteration: VAR CurrentPrice = Products[ListPrice]. Inside the FILTER, you compare against CurrentPrice instead of using EARLIER. This is clearer and less error-prone.
+While EARLIER works, modern DAX best practice strongly favors VAR instead. You capture the outer value in a variable before entering the inner iteration: VAR CurrentPrice = Products[ListPrice]. Inside the FILTER, you compare against CurrentPrice instead of using EARLIER. This is not just clearer — it's the recommended pattern because VARs are easier to debug, extend, and understand at a glance.
 
-Understanding EARLIER is still important because you'll encounter it in existing models and legacy code, and it reinforces how row context nesting works.`,
+Understanding EARLIER is still important because you'll encounter it in existing models and older code. However, for any new DAX you write, always prefer the VAR approach.`,
     conceptKeyTakeaways: [
       "Row context = iterating over rows one at a time (calculated columns, SUMX, FILTER)",
       "EARLIER() references the outer row context in nested iterations",
@@ -365,7 +365,7 @@ The syntax is: VAR VariableName = expression ... RETURN final_expression. You ca
 
 Performance benefit: without VAR, if you reference [Total Sales] three times in a measure, the engine evaluates it three times. With VAR TotalSales = [Total Sales], it's evaluated once and reused. For complex measures, this can make a significant difference.
 
-Context capture: VARs capture the filter context at the point they're defined, not where they're used. This is critical. If you define VAR CurrentSales = [Total Sales] and then use CALCULATE to change the filter context, CurrentSales still holds the value from the original context. This makes VARs perfect for "before and after" comparisons.
+Context capture: VARs are evaluated in the filter context where they are defined, not where they are referenced. This is critical. If you define VAR CurrentSales = [Total Sales] and then use CALCULATE to change the filter context in the RETURN expression, CurrentSales still holds the value from the original context. This makes VARs perfect for "before and after" comparisons — capture the "before" value in a VAR, change the context with CALCULATE, and compare.
 
 Style guideline: name your VARs descriptively. VAR TotalRevenue is better than VAR x. Think of each VAR as a named step in a calculation. Reading the RETURN statement should tell you the formula, and reading the VARs should tell you what each component means.`,
     conceptKeyTakeaways: [
@@ -476,9 +476,9 @@ Setting proper data categories enables map visuals. If you set City and State da
 
 Display folders organize the Fields pane. Instead of a flat list of 50 measures, you can group them: "Revenue Metrics", "Customer Metrics", "Time Intelligence". This is done in the Properties pane or via Tabular Editor.
 
-Format strings control how numbers display. The FORMAT function converts a number to a formatted string: FORMAT(1234.5, "#,0.0") returns "1,234.5". For measures, you can set the format in the Modeling tab, but FORMAT is useful when you need conditional formatting — showing different formats based on the value.
+Format strings control how numbers display. The FORMAT function converts a number to a formatted string: FORMAT(1234.5, "#,0.0") returns "1,234.5". Important caveat: FORMAT() returns TEXT, not a number. This means a measure using FORMAT() cannot be used in further calculations, cannot be sorted numerically, and will sort alphabetically (so "9" comes after "10"). Only use FORMAT() when you specifically need a text result — for normal display formatting, use the Format dropdown in the Modeling tab instead.
 
-Dynamic format strings (a newer Power BI feature) let a single measure change its format based on context. Instead of creating separate measures, you can have one measure that shows as currency, percentage, or whole number depending on a slicer selection.`,
+Dynamic format strings (a newer Power BI feature) are the proper solution for conditional formatting. They let a single measure change its display format based on context while keeping the underlying value numeric. This is far superior to FORMAT() because the value remains a number — sortable, usable in calculations, and properly formatted.`,
     conceptKeyTakeaways: [
       "Data categories (City, State, Country) enable map visuals and proper geocoding",
       "Display folders organize measures in the Fields pane for better usability",
@@ -523,7 +523,7 @@ Single day: "850"`,
       "FORMAT(number, format_string) converts a number to text",
       "Use '#,0.0' for one decimal place with comma separators",
       "Concatenate the suffix with &: FORMAT(x, '#,0.0') & 'M'",
-      "Note: FORMAT returns text, so this measure can't be used in calculations — only for display",
+      "WARNING: FORMAT returns TEXT — the result can't be used in calculations and will sort alphabetically, not numerically. Prefer dynamic format strings when possible.",
     ],
     sampleModel: "Sales[TotalAmount] aggregated with SUM. The formatted result is a string, not a number.",
     powerBINotes: "For most formatting, use the Format dropdown in the Modeling tab — it's cleaner than FORMAT(). Reserve FORMAT() for cases where the format must change conditionally.",
@@ -599,20 +599,20 @@ East region: Variance = -$15,000, Variance % = -1.5% (under target)`,
     day: 11,
     tier: "builder",
     title: "CALCULATE & Context Transition",
-    conceptLesson: `CALCULATE is the single most important function in DAX. It does two things: (1) evaluates an expression in a modified filter context, and (2) performs context transition — converting row context into filter context.
+    conceptLesson: `CALCULATE is the single most important function in DAX. It does two things: (1) evaluates an expression in a new filter context defined by its filter arguments, and (2) performs context transition — converting any existing row context into an equivalent filter context.
 
-When you write CALCULATE([Total Sales], Products[Category] = "Electronics"), you're saying: evaluate Total Sales, but first override the filter on Products[Category] to only include "Electronics". The existing filter on Category is replaced (not intersected) by the new one.
+When you write CALCULATE([Total Sales], Products[Category] = "Electronics"), CALCULATE creates a new filter context where Products[Category] is filtered to "Electronics". Importantly, filter arguments in CALCULATE replace any existing filter on the same column — they don't intersect with it. If the visual was already filtering Category to "Clothing", the CALCULATE filter overrides that to "Electronics".
 
-Context transition happens when CALCULATE is used inside an iterator. If you write SUMX(Products, CALCULATE([Total Sales])), for each product row, CALCULATE converts the current row context (this specific product) into a filter context (ProductID = current product's ID). This is how you can use a measure inside an iterator.
+Context transition happens whenever CALCULATE is present inside a row context. If you write SUMX(Products, CALCULATE([Total Sales])), for each product row, CALCULATE takes all columns of the current row and creates corresponding filter conditions. This is how a measure works inside an iterator. Critical insight: every measure reference contains an implicit CALCULATE — so writing SUMX(Products, [Total Sales]) also triggers context transition, because [Total Sales] internally wraps in CALCULATE.
 
-ALL() removes all filters from a table or column. ALLEXCEPT() removes all filters EXCEPT the ones you specify. The difference is crucial for percentage calculations:
-- % of Grand Total: DIVIDE([Total Sales], CALCULATE([Total Sales], ALL(Products))) — removes ALL product filters
+ALL() removes all filters from a table or column. ALLEXCEPT() removes all filters EXCEPT the ones you specify. In modern DAX, REMOVEFILTERS() is the preferred function for removing filters inside CALCULATE — it's semantically clearer about intent. The difference is crucial for percentage calculations:
+- % of Grand Total: DIVIDE([Total Sales], CALCULATE([Total Sales], REMOVEFILTERS(Products))) — removes ALL product filters
 - % of Parent Category: DIVIDE([Total Sales], CALCULATE([Total Sales], ALLEXCEPT(Products, Products[Category]))) — removes subcategory filter but KEEPS the category filter`,
     conceptKeyTakeaways: [
-      "CALCULATE modifies filter context: replaces existing filters with new ones",
-      "Context transition: CALCULATE inside an iterator converts row context → filter context",
-      "ALL(table) removes ALL filters; ALLEXCEPT(table, keep_column) removes all EXCEPT specified",
-      "% of Total uses ALL; % of Parent uses ALLEXCEPT",
+      "CALCULATE evaluates an expression in a new filter context; filter arguments REPLACE existing filters on the same columns",
+      "Context transition: CALCULATE (explicit or implicit in measures) converts row context → filter context",
+      "REMOVEFILTERS (modern) or ALL removes filters; ALLEXCEPT removes all EXCEPT specified columns",
+      "% of Total uses ALL/REMOVEFILTERS; % of Parent uses ALLEXCEPT",
     ],
     daxScenario: "The category managers want two views: each category's share of the entire company (% of Total), and each subcategory's share within its parent category (% of Parent). These require different filter manipulation.",
     daxInstructions: `Write two percentage measures:
@@ -674,7 +674,7 @@ TOTALYTD and TOTALMTD are convenience functions. TOTALYTD([Measure], Calendar[Da
 
 The Year-over-Year Growth pattern combines these: VAR Current = [Total Sales], VAR Prior = CALCULATE([Total Sales], SAMEPERIODLASTYEAR(Calendar[Date])), RETURN DIVIDE(Current - Prior, Prior). This gives you the growth rate, handling the case where prior year is zero.
 
-All time intelligence functions require: a marked date table, a contiguous date range, and the date column from the date table (not from the fact table). SAMEPERIODLASTYEAR(Sales[OrderDate]) will NOT work — you must use Calendar[Date].`,
+All time intelligence functions require: a marked date table, a contiguous date range covering all dates in your data, and the date column from the date table (not from the fact table). SAMEPERIODLASTYEAR(Sales[OrderDate]) will NOT work — you must use Calendar[Date]. This is a common source of errors: if your date table has gaps or doesn't extend far enough back, prior-year calculations will return blank.`,
     conceptKeyTakeaways: [
       "SAMEPERIODLASTYEAR shifts the date filter back one year",
       "TOTALYTD accumulates from Jan 1; TOTALMTD from the 1st of the month",
@@ -747,14 +747,14 @@ SUMX(table, expression) iterates over each row of the table, evaluates the expre
 
 A classic use case: weighted average price. You can't just AVERAGE the price — you need to weight each price by its quantity. SUMX(Sales, Sales[Quantity] * Sales[UnitPrice]) gives the quantity-weighted total, and dividing by SUM(Sales[Quantity]) gives the weighted average.
 
-MAXX is powerful for finding "best" records. MAXX(VALUES(Calendar[Date]), [Total Sales]) evaluates [Total Sales] for each date and returns the highest value. Note: [Total Sales] inside MAXX triggers context transition — each date becomes a filter context.
+MAXX is powerful for finding "best" records. MAXX(VALUES(Calendar[Date]), [Total Sales]) evaluates [Total Sales] for each date and returns the highest value. Since [Total Sales] is a measure, it contains an implicit CALCULATE that triggers context transition — each date's row context becomes a filter context filtering to that single date.
 
-Iterators create row context. Inside the expression, you can access column values directly. If you reference a measure inside an iterator, CALCULATE is implicitly invoked (context transition), converting the row context to filter context.`,
+Iterators create row context. Inside the expression, you can access column values directly. When you reference a measure inside an iterator, the measure's implicit CALCULATE triggers context transition, converting the current row context to an equivalent filter context. This is why SUMX(Products, [Total Sales]) works — each product row becomes a filter, and [Total Sales] evaluates for that one product.`,
     conceptKeyTakeaways: [
       "Iterators (SUMX, AVERAGEX, MAXX) evaluate an expression per row, then aggregate",
       "Use iterators when you need row-level math before aggregation (e.g., weighted averages)",
       "MAXX/MINX over a table of values finds the best/worst period or entity",
-      "Measures inside iterators trigger context transition automatically",
+      "Measures contain an implicit CALCULATE — referencing a measure inside an iterator triggers context transition",
     ],
     daxScenario: "The pricing team needs a quantity-weighted average price (not a simple average) and wants to know which single day had the highest sales volume across the entire dataset.",
     daxInstructions: `Write two measures:
@@ -869,7 +869,7 @@ TOPN(n, table, expression, [order]) returns the top N rows from a table, sorted 
 
 The pattern CALCULATE([Total Sales], TOPN(5, ALL(Products[ProductName]), [Total Sales])) calculates total sales but only for the top 5 products by revenue. TOPN returns a table of 5 product names, and CALCULATE uses that as a filter.
 
-ADDCOLUMNS(table, name, expression, ...) extends a table with calculated columns — useful for building intermediate tables inside a measure. SUMMARIZE groups a table by specified columns, similar to GROUP BY in SQL.`,
+ADDCOLUMNS(table, name, expression, ...) extends a table with calculated columns — useful for building intermediate tables inside a measure. SUMMARIZE groups a table by specified columns, similar to GROUP BY in SQL. However, be cautious with SUMMARIZE: never add expression columns directly to SUMMARIZE (e.g., SUMMARIZE(Sales, Products[Category], "Total", SUM(Sales[Amount]))). Instead, wrap it with ADDCOLUMNS: ADDCOLUMNS(SUMMARIZE(Sales, Products[Category]), "Total", SUM(Sales[Amount])). Better yet, for new development use SUMMARIZECOLUMNS — it's optimized and avoids the pitfalls of SUMMARIZE.`,
     conceptKeyTakeaways: [
       "Table functions (FILTER, ALL, VALUES, TOPN) return tables that can be used as filters",
       "TOPN(n, table, expression) returns the top N rows — combine with CALCULATE for filtered measures",
@@ -1040,9 +1040,9 @@ Use "Is Top N = 1" as a visual-level filter to show only top N products.`,
 
 Inventory balance is the classic example. If Store A has 100 units and Store B has 200 units, the total is 300 (additive across stores). But if January's balance is 100 and February's is 150, the total is NOT 250 — it's 150 (the latest balance). You want the last value, not the sum.
 
-LASTDATE(Calendar[Date]) returns the last date in the current filter context. CALCULATE(SUM(Inventory[StockOnHand]), LASTDATE(Calendar[Date])) gives you the inventory on the last day of whatever period is in context.
+LASTDATE(Calendar[Date]) returns a single-row table containing the last date in the current filter context. CALCULATE(SUM(Inventory[StockOnHand]), LASTDATE(Calendar[Date])) filters to just that one day and returns the inventory value. Note: LASTDATE returns the last date in the Calendar table that falls within the current filter — it doesn't check whether data exists on that date.
 
-LASTNONBLANK(Calendar[Date], expression) is similar but smarter — it finds the last date where the expression is not blank. This handles gaps in data (weekends, holidays).
+LASTNONBLANK(Calendar[Date], expression) is an iterator that finds the last date where the expression produces a non-blank result. This is more robust for real-world data because it handles gaps (weekends, holidays, missing data). However, LASTNONBLANK is more expensive because it must evaluate the expression for each date to find the last non-blank one.
 
 OPENINGBALANCEYEAR and CLOSINGBALANCEYEAR provide the value at the start or end of the fiscal year. These are essential for financial reporting.`,
     conceptKeyTakeaways: [
@@ -1250,11 +1250,11 @@ Variance Color: "#2ECC71" (green, above 5% target)`,
 
 The traditional solution is a bridge table (also called a junction table). CustomerPromotions has rows like (CustomerID=1, PromotionID=A), (CustomerID=1, PromotionID=B), etc. Customers → CustomerPromotions ← Promotions. Both relationships are one-to-many.
 
-TREATAS is a DAX alternative to physical bridge table relationships. TREATAS(table_expression, column) applies a table as a virtual filter. Instead of a physical relationship, you use CALCULATE with TREATAS to filter across the bridge.
+TREATAS is a DAX function that creates a virtual relationship by transferring a column's filter to another column with matching data lineage. TREATAS(table_expression, target_column) takes the values from the table expression and applies them as a filter on the target column, even without a physical relationship.
 
-TREATAS(VALUES(Promotions[PromotionID]), CustomerPromotions[PromotionID]) takes the currently filtered promotion IDs and applies them as a filter on the CustomerPromotions table. Combined with CALCULATE, this propagates the filter through to Sales.
+TREATAS(VALUES(Promotions[PromotionID]), CustomerPromotions[PromotionID]) takes the currently filtered promotion IDs and applies them as a filter on the CustomerPromotions table. Combined with CALCULATE, this propagates the filter through to Sales. The key advantage: TREATAS works at the column level, transferring the filter as if a relationship existed — but only for that specific measure.
 
-When to use which: physical bridge tables are better for performance and simpler DAX. TREATAS is better when you can't modify the model or need a quick virtual relationship.`,
+When to use which: physical bridge tables with one-to-many relationships are always preferred for performance, simplicity, and because they work automatically for all measures. TREATAS is the right choice when you can't modify the model (e.g., connecting to a shared dataset), when the relationship is only needed for specific measures, or when a physical relationship would create ambiguity.`,
     conceptKeyTakeaways: [
       "Many-to-many: use a bridge/junction table with two one-to-many relationships",
       "TREATAS creates virtual relationships by applying one column's values as a filter on another",
@@ -1308,12 +1308,12 @@ When you put the Time Period column on a matrix column header and Total Sales as
 
 SELECTEDMEASURE() is the key function. Inside a calculation item expression, it references whatever base measure the user placed in the visual. The "YTD" item expression is TOTALYTD(SELECTEDMEASURE(), Calendar[Date]) — it applies TOTALYTD to any measure.
 
-Calculation groups are created in Tabular Editor (external tool) or via TMDL. They can't be created directly in Power BI Desktop's UI yet, but they're fully supported once created.`,
+Calculation groups are created in Tabular Editor 3 (an external tool developed by the SQLBI team and Kasper de Jonge) or via TMDL. Power BI Desktop now also supports creating them directly in the Model view. Calculation groups are one of the most powerful features in the Tabular model — they dramatically reduce measure proliferation and ensure consistency across all time intelligence calculations.`,
     conceptKeyTakeaways: [
       "Calculation groups apply reusable transformations to ANY base measure",
       "SELECTEDMEASURE() references whatever measure the user placed in the visual",
       "One Time Intelligence calculation group replaces dozens of individual measures",
-      "Created in Tabular Editor — not yet available in Power BI Desktop UI",
+      "Created in Tabular Editor 3 or directly in Power BI Desktop's Model view",
     ],
     daxScenario: "Instead of creating separate YTD, PY, and YoY% versions of every measure, write the DAX expressions for a Time Intelligence calculation group that works with any base measure.",
     daxInstructions: `Write four calculation item expressions for a "Time Calculation" group:
@@ -1367,7 +1367,7 @@ These same transformations apply to ANY measure placed in the visual.`,
       "YoY % uses VAR to capture Current and Prior, then DIVIDE",
     ],
     sampleModel: "Calendar[Date] for time intelligence. Any measure can be the base. Created via Tabular Editor.",
-    powerBINotes: "Download Tabular Editor from the External Tools tab. Create the calculation group there and save — it immediately appears in Power BI Desktop.",
+    powerBINotes: "Download Tabular Editor 3 (free version available) from the External Tools tab, or create calculation groups directly in Power BI Desktop's Model view. Changes save immediately to the model.",
   },
   {
     day: 23,
@@ -1381,7 +1381,7 @@ For fiscal years that don't start on January 1, TOTALYTD accepts an optional yea
 
 PARALLELPERIOD(date_column, intervals, interval_type) shifts the entire date filter by a number of periods. PARALLELPERIOD(Calendar[Date], -1, QUARTER) shifts back one quarter — useful for quarter-over-quarter comparisons.
 
-DATEADD is similar but more flexible: DATEADD(Calendar[Date], -1, MONTH) shifts back one month. The difference from PARALLELPERIOD: DATEADD shifts the exact date range, while PARALLELPERIOD expands to complete periods.`,
+DATEADD is similar but with an important difference: DATEADD(Calendar[Date], -1, MONTH) shifts the date filter back one month while preserving the exact shape of the original selection. PARALLELPERIOD always expands to complete periods. For example, if your context is January 15-20, DATEADD(-1, MONTH) returns December 15-20, while PARALLELPERIOD(-1, MONTH) returns the entire month of December. Choose based on whether you need the same date range shifted (DATEADD) or a complete prior period (PARALLELPERIOD).`,
     conceptKeyTakeaways: [
       "DATESINPERIOD creates rolling windows (e.g., trailing 12 months)",
       "TOTALYTD with year-end date parameter handles custom fiscal years",
@@ -1498,13 +1498,13 @@ DAX Studio is your essential tool. VertiPaq Analyzer shows the size of every col
 
 For measure performance, the biggest wins come from: (1) using VAR to avoid repeated calculations, (2) replacing FILTER(ALL(...)) with KEEPFILTERS where appropriate, (3) avoiding nested iterators when possible, and (4) reducing the use of DISTINCTCOUNT on high-cardinality columns.
 
-KEEPFILTERS intersects the new filter with the existing context instead of replacing it. FILTER(ALL(Sales), Sales[TotalAmount] > X) evaluates every row in the entire Sales table. KEEPFILTERS is more restrictive and often much faster because it only evaluates rows already in the current context.
+KEEPFILTERS changes how a filter argument behaves inside CALCULATE. Normally, a CALCULATE filter argument replaces any existing filter on the same column. With KEEPFILTERS, the new filter is intersected (ANDed) with the existing filter instead of replacing it. This means KEEPFILTERS only narrows the results — it never expands them beyond what the current context already shows.
 
-A common pattern to rewrite: replace CALCULATE(SUM(...), FILTER(ALL(table), condition)) with CALCULATE(SUM(...), KEEPFILTERS(table[column] > value)). The second form leverages the existing filter context instead of scanning everything.`,
+The classic slow pattern: CALCULATE(SUM(...), FILTER(ALL(Sales), Sales[TotalAmount] > X)). The ALL(Sales) removes all existing filters and iterates every row. The optimized version: CALCULATE(SUM(...), KEEPFILTERS(FILTER(Sales, Sales[TotalAmount] > AvgValue))). Here, FILTER(Sales, ...) only iterates rows already in the current context, and KEEPFILTERS ensures the result intersects with (rather than replaces) existing filters.`,
     conceptKeyTakeaways: [
       "High-cardinality columns hurt VertiPaq compression — audit with DAX Studio's VertiPaq Analyzer",
       "VAR eliminates repeated calculation of the same expression",
-      "KEEPFILTERS intersects with existing context (faster); FILTER(ALL()) scans everything (slower)",
+      "KEEPFILTERS intersects (ANDs) with existing filters instead of replacing them; FILTER(ALL()) removes filters and scans everything",
       "Reduce DISTINCTCOUNT on high-cardinality columns; avoid nested iterators when possible",
     ],
     daxScenario: "A slow measure calculates 'sales above average' by scanning ALL sales rows. Rewrite it for better performance using VAR to pre-compute the average and KEEPFILTERS to limit the scan.",
@@ -1623,7 +1623,7 @@ Level 1 Manager: "CEO Name" (looked up from ID 1)`,
     title: "Advanced Filtering Patterns",
     conceptLesson: `Beyond ALL and ALLEXCEPT, DAX has several powerful filter modifiers that control exactly which filters are active during a calculation.
 
-REMOVEFILTERS is the modern replacement for ALL when used as a CALCULATE modifier. REMOVEFILTERS(Products[Subcategory]) is clearer than ALL(Products[Subcategory]) — it explicitly states the intent. Use REMOVEFILTERS for new measures.
+REMOVEFILTERS is the recommended replacement for ALL when used as a CALCULATE modifier. REMOVEFILTERS(Products[Subcategory]) is clearer than ALL(Products[Subcategory]) because it explicitly communicates the intent: you're removing a filter, not returning a table. ALL has dual semantics — as a table function it returns all rows, as a CALCULATE modifier it removes filters. This ambiguity can confuse readers. REMOVEFILTERS eliminates that confusion. Always use REMOVEFILTERS for new measures when the goal is to remove filters.
 
 ALLSELECTED preserves the "outer" filter context — typically the slicer selections — while removing only the visual-level grouping filters. In a visual showing categories, CALCULATE([Total Sales], ALLSELECTED(Products[Category])) gives the total across all visible categories (respecting slicers) while ignoring the per-row category filter. This is perfect for "% of visible total" calculations.
 
@@ -1864,8 +1864,12 @@ Trend Arrow =
 VAR CurrentMonth = SUM(Sales[TotalAmount])
 VAR PriorMonth = CALCULATE(SUM(Sales[TotalAmount]), DATEADD(Calendar[Date], -1, MONTH))
 RETURN
-IF(CurrentMonth > PriorMonth, UNICHAR(9650),
-    IF(CurrentMonth < PriorMonth, UNICHAR(9660), UNICHAR(9644)))
+SWITCH(
+    TRUE(),
+    CurrentMonth > PriorMonth, UNICHAR(9650),
+    CurrentMonth < PriorMonth, UNICHAR(9660),
+    UNICHAR(9644)
+)
 
 KPI Status Color =
 VAR YoY = [Revenue vs LY]
