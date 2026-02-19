@@ -15,6 +15,7 @@ export interface Challenge {
   hints: string[];
   sampleModel: string;
   powerBINotes: string;
+  videoUrl?: string;
 }
 
 export const challenges: Challenge[] = [
@@ -71,6 +72,7 @@ Total Orders: 15,000 (count of rows in Sales table)`,
     ],
     sampleModel: "Sales[TotalAmount] contains the dollar amount per transaction. Each row in Sales is one order line.",
     powerBINotes: "In Power BI Desktop, create measures by right-clicking the Sales table → New Measure. Always prefer measures over calculated columns for aggregations.",
+    videoUrl: "https://www.youtube.com/watch?v=vZndrBBPiQc",
   },
   {
     day: 2,

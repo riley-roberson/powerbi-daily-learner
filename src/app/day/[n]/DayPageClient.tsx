@@ -229,6 +229,28 @@ export default function DayPageClient() {
             <CodeEditor value={challenge.solution} onChange={() => {}} readOnly />
           </div>
         )}
+
+        {/* Video */}
+        {challenge.videoUrl && (() => {
+          const match = challenge.videoUrl!.match(/[?&]v=([^&]+)/);
+          const videoId = match ? match[1] : null;
+          return videoId ? (
+            <div>
+              <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">
+                Video Lesson
+              </h3>
+              <div className="relative w-full" style={{ paddingBottom: "56.25%" }}>
+                <iframe
+                  className="absolute inset-0 w-full h-full rounded-lg"
+                  src={`https://www.youtube.com/embed/${videoId}`}
+                  title="Video Lesson"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              </div>
+            </div>
+          ) : null;
+        })()}
       </div>
     </div>
   );
