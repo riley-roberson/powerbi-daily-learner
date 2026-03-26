@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import ResourceMenu from "@/components/ResourceMenu";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -17,13 +18,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <span className="text-lg font-bold text-[#e87722]">PBI</span>
               <span className="text-sm text-gray-400">Daily Learner</span>
             </Link>
-            <div className="flex gap-4 text-sm">
+            <div className="flex items-center gap-4 text-sm">
               <Link href="/" className="text-gray-400 hover:text-white transition">
                 Home
               </Link>
               <Link href="/curriculum" className="text-gray-400 hover:text-white transition">
                 Curriculum
               </Link>
+              <ResourceMenu />
             </div>
           </div>
         </nav>
