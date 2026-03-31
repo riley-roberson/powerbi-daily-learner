@@ -1,5 +1,18 @@
 import { Tier } from "./curriculum";
 
+export interface SchemaColumn {
+  name: string;
+  type: string;
+  description: string;
+}
+
+export interface TableSchema {
+  tableName: string;
+  filePath: string;
+  purpose: string;
+  columns: SchemaColumn[];
+}
+
 export interface Challenge {
   day: number;
   tier: Tier;
@@ -16,7 +29,104 @@ export interface Challenge {
   sampleModel: string;
   powerBINotes: string;
   videoUrl?: string;
+  testDataSchema?: TableSchema[];
 }
+
+// ── Reusable schema constants ──────────────────────────────────────
+
+const SALES_TABLE: TableSchema = {
+  tableName: "Sales",
+  filePath: "Fact table",
+  purpose: "Fact",
+  columns: [
+    { name: "SalesID", type: "integer", description: "Unique transaction identifier" },
+    { name: "OrderDate", type: "date", description: "Date the order was placed" },
+    { name: "CustomerID", type: "integer", description: "FK to Customers" },
+    { name: "ProductID", type: "integer", description: "FK to Products" },
+    { name: "StoreID", type: "integer", description: "FK to Stores" },
+    { name: "Quantity", type: "integer", description: "Units sold" },
+    { name: "UnitPrice", type: "currency", description: "Price per unit" },
+    { name: "TotalAmount", type: "currency", description: "Total sale amount (Quantity x UnitPrice)" },
+  ],
+};
+
+const PRODUCTS_TABLE: TableSchema = {
+  tableName: "Products",
+  filePath: "Dimension table",
+  purpose: "Dimension",
+  columns: [
+    { name: "ProductID", type: "integer", description: "Unique product identifier" },
+    { name: "ProductName", type: "text", description: "Product display name" },
+    { name: "Category", type: "text", description: "Product category" },
+    { name: "Subcategory", type: "text", description: "Product subcategory" },
+    { name: "ListPrice", type: "currency", description: "Retail list price" },
+    { name: "UnitCost", type: "currency", description: "Cost per unit" },
+  ],
+};
+
+const CUSTOMERS_TABLE: TableSchema = {
+  tableName: "Customers",
+  filePath: "Dimension table",
+  purpose: "Dimension",
+  columns: [
+    { name: "CustomerID", type: "integer", description: "Unique customer identifier" },
+    { name: "CustomerName", type: "text", description: "Customer full name" },
+    { name: "Region", type: "text", description: "Geographic region" },
+    { name: "City", type: "text", description: "Customer city" },
+  ],
+};
+
+const STORES_TABLE: TableSchema = {
+  tableName: "Stores",
+  filePath: "Dimension table",
+  purpose: "Dimension",
+  columns: [
+    { name: "StoreID", type: "integer", description: "Unique store identifier" },
+    { name: "StoreName", type: "text", description: "Store display name" },
+    { name: "Region", type: "text", description: "Store region" },
+  ],
+};
+
+const CALENDAR_TABLE: TableSchema = {
+  tableName: "Calendar",
+  filePath: "Dimension table (date table)",
+  purpose: "Dimension",
+  columns: [
+    { name: "Date", type: "date", description: "Calendar date (marked as date table)" },
+    { name: "Year", type: "integer", description: "Calendar year" },
+    { name: "Quarter", type: "integer", description: "Calendar quarter (1-4)" },
+    { name: "MonthNumber", type: "integer", description: "Month number (1-12)" },
+    { name: "MonthName", type: "text", description: "Full month name" },
+    { name: "FiscalYear", type: "integer", description: "Fiscal year" },
+    { name: "FiscalQuarter", type: "integer", description: "Fiscal quarter" },
+    { name: "IsWeekend", type: "boolean", description: "True if Saturday or Sunday" },
+  ],
+};
+
+const SALES_TARGETS_TABLE: TableSchema = {
+  tableName: "SalesTargets",
+  filePath: "Fact table",
+  purpose: "Fact",
+  columns: [
+    { name: "StoreID", type: "integer", description: "FK to Stores" },
+    { name: "Year", type: "integer", description: "Target year" },
+    { name: "Month", type: "integer", description: "Target month" },
+    { name: "TargetAmount", type: "currency", description: "Monthly sales target" },
+  ],
+};
+
+const RETURNS_TABLE: TableSchema = {
+  tableName: "Returns",
+  filePath: "Fact table",
+  purpose: "Fact",
+  columns: [
+    { name: "ReturnID", type: "integer", description: "Unique return identifier" },
+    { name: "SalesID", type: "integer", description: "FK to Sales" },
+    { name: "ReturnDate", type: "date", description: "Date the return was processed" },
+    { name: "Quantity", type: "integer", description: "Units returned" },
+    { name: "ReturnAmount", type: "currency", description: "Refund amount" },
+  ],
+};
 
 export const challenges: Challenge[] = [
   // ============================================================
@@ -73,6 +183,7 @@ Total Orders: 15,000 (count of rows in Sales table)`,
     sampleModel: "Sales[TotalAmount] contains the dollar amount per transaction. Each row in Sales is one order line.",
     powerBINotes: "In Power BI Desktop, create measures by right-clicking the Sales table → New Measure. Always prefer measures over calculated columns for aggregations.",
     videoUrl: "https://www.youtube.com/watch?v=vZndrBBPiQc",
+    testDataSchema: [SALES_TABLE],
   },
   {
     day: 2,
@@ -128,6 +239,7 @@ Products per Region: varies by region — e.g., West: 85, East: 92`,
     ],
     sampleModel: "Sales[CustomerID] → Customers[CustomerID] (many-to-one). Sales[ProductID] → Products[ProductID] (many-to-one).",
     powerBINotes: "In Model view, double-click a relationship line to see its cardinality and cross-filter direction. Avoid changing these globally — use CROSSFILTER() in measures instead.",
+    testDataSchema: [SALES_TABLE, CUSTOMERS_TABLE, PRODUCTS_TABLE],
   },
   {
     day: 3,
@@ -184,6 +296,7 @@ For June 2024: YTD Sales = $2,340,000 (Jan through Jun cumulative)`,
     ],
     sampleModel: "Calendar[Date] is the date column marked as the date table. Sales[OrderDate] → Calendar[Date] is the active relationship.",
     powerBINotes: "After creating a Calendar table, go to Table tools → Mark as date table → select the Date column. This enables all time intelligence functions.",
+    testDataSchema: [SALES_TABLE, CALENDAR_TABLE],
   },
   {
     day: 4,
@@ -244,6 +357,7 @@ Avg Order Value: $283.33 (Total Sales / Total Orders, changes with filters)`,
     ],
     sampleModel: "Products[ListPrice] and Products[UnitCost] are per-product values. Sales[TotalAmount] is per-transaction.",
     powerBINotes: "Create calculated columns by right-clicking a table → New Column. Create measures via New Measure. You can tell them apart in the Fields pane — measures show a calculator icon.",
+    testDataSchema: [SALES_TABLE, PRODUCTS_TABLE],
   },
   {
     day: 5,
@@ -302,6 +416,7 @@ Grand Total: 100%`,
     ],
     sampleModel: "Products[Category] is the grouping column. Sales[TotalAmount] is summed. The relationship Sales[ProductID] → Products[ProductID] propagates the filter.",
     powerBINotes: "Format percentage measures as Percentage in the Modeling tab. Set decimal places to 1. This applies the % format automatically in visuals.",
+    testDataSchema: [SALES_TABLE, PRODUCTS_TABLE],
   },
   {
     day: 6,
@@ -356,6 +471,7 @@ Earbuds: Rank 3 (lowest price in category)`,
     ],
     sampleModel: "Products[Category], Products[ListPrice], Products[ProductName]. Each product has one category and one list price.",
     powerBINotes: "Calculated columns are computed during data refresh and stored in the model. For large tables, prefer measure-based ranking with RANKX instead.",
+    testDataSchema: [PRODUCTS_TABLE],
   },
   {
     day: 7,
@@ -414,6 +530,7 @@ Changes dynamically with date and store filters`,
     ],
     sampleModel: "Sales[TotalAmount], Sales[Quantity]. Products[UnitCost] accessed via RELATED() through the Sales→Products relationship.",
     powerBINotes: "You can debug VAR values using the Performance Analyzer in Power BI Desktop. Run the visual query and inspect the DAX in DAX Studio.",
+    testDataSchema: [SALES_TABLE, PRODUCTS_TABLE],
   },
   {
     day: 8,
@@ -467,6 +584,7 @@ Mar 2024: $15,200
     ],
     sampleModel: "Returns[ReturnDate] → Calendar[Date] (inactive). Returns[SalesID] → Sales[SalesID] → Calendar[Date] via Sales[OrderDate] (active path).",
     powerBINotes: "In Model view, inactive relationships show as dashed lines. Double-click to see which is active. You can change which is active, but USERELATIONSHIP is more flexible.",
+    testDataSchema: [SALES_TABLE, RETURNS_TABLE, CALENDAR_TABLE],
   },
   {
     day: 9,
@@ -529,6 +647,7 @@ Single day: "850"`,
     ],
     sampleModel: "Sales[TotalAmount] aggregated with SUM. The formatted result is a string, not a number.",
     powerBINotes: "For most formatting, use the Format dropdown in the Modeling tab — it's cleaner than FORMAT(). Reserve FORMAT() for cases where the format must change conditionally.",
+    testDataSchema: [SALES_TABLE],
   },
   {
     day: 10,
@@ -592,6 +711,7 @@ East region: Variance = -$15,000, Variance % = -1.5% (under target)`,
     ],
     sampleModel: "Sales[TotalAmount] and SalesTargets[TargetAmount] both filter through Stores[StoreID]. Calendar filters Sales via OrderDate. SalesTargets matches by Year+Month.",
     powerBINotes: "When actuals and targets come from different tables, they MUST share dimensions for comparison to work. If filtering by date doesn't work for targets, check that SalesTargets connects to the Calendar table.",
+    testDataSchema: [SALES_TABLE, SALES_TARGETS_TABLE, STORES_TABLE, CALENDAR_TABLE],
   },
 
   // ============================================================
@@ -663,6 +783,7 @@ Clothing | Shirts: % of Total = 12%, % of Parent = 43%`,
     ],
     sampleModel: "Products[Category] and Products[Subcategory]. Sales[ProductID] → Products[ProductID].",
     powerBINotes: "Test percentage measures in a matrix visual with Category on rows and Subcategory as a sub-level. The % of Parent should sum to 100% within each category.",
+    testDataSchema: [SALES_TABLE, PRODUCTS_TABLE],
   },
   {
     day: 12,
@@ -738,6 +859,7 @@ MTD Sales: $382,500 (cumulative March 1-31)`,
     ],
     sampleModel: "Calendar[Date] is the marked date table. Sales[OrderDate] → Calendar[Date] (active relationship).",
     powerBINotes: "Test time intelligence in a matrix with Calendar[Year] and Calendar[MonthName] on rows. Verify SPLY shows last year's values aligned correctly.",
+    testDataSchema: [SALES_TABLE, CALENDAR_TABLE],
   },
   {
     day: 13,
@@ -797,6 +919,7 @@ Best Selling Day: $45,200 (the peak sales amount on a single day)`,
     ],
     sampleModel: "Sales[Quantity], Sales[UnitPrice], Sales[TotalAmount]. Calendar[Date] for daily aggregation.",
     powerBINotes: "SUMX is more expensive than SUM because it iterates row by row. For simple sums, always prefer SUM. Use SUMX only when you need per-row calculations.",
+    testDataSchema: [SALES_TABLE, CALENDAR_TABLE],
   },
   {
     day: 14,
@@ -858,6 +981,7 @@ New Customer: Bronze ($150 spend)`,
     ],
     sampleModel: "Sales[TotalAmount], Sales[CustomerID] → Customers[CustomerID]. When used in a visual grouped by customer, CALCULATE triggers context transition.",
     powerBINotes: "This measure returns text, so it works well in a table or as a slicer. For calculated columns, the same logic works without CALCULATE since you already have row context.",
+    testDataSchema: [SALES_TABLE, CUSTOMERS_TABLE],
   },
   {
     day: 15,
@@ -912,6 +1036,7 @@ This value changes with region/date filters — the top 5 is recalculated per co
     ],
     sampleModel: "Products[ProductName] for grouping. Sales[TotalAmount] for the sales metric. Products → Sales via ProductID.",
     powerBINotes: "TOPN can be expensive on large datasets. If the top N is always the same regardless of context, consider pre-computing it in Power Query instead.",
+    testDataSchema: [SALES_TABLE, PRODUCTS_TABLE],
   },
   {
     day: 16,
@@ -970,6 +1095,17 @@ No selection: defaults to Revenue`,
     ],
     sampleModel: "MetricSelector[MetricName] (disconnected). Sales[TotalAmount], Sales[Quantity] for calculations.",
     powerBINotes: "Create disconnected tables via Enter Data in the Home tab. You can also use Modeling → New Parameter for numeric what-if scenarios.",
+    testDataSchema: [
+      SALES_TABLE,
+      {
+        tableName: "MetricSelector",
+        filePath: "Disconnected table",
+        purpose: "Disconnected",
+        columns: [
+          { name: "MetricName", type: "text", description: "Metric label (e.g. 'Revenue', 'Quantity', 'Avg Price')" },
+        ],
+      },
+    ],
   },
   {
     day: 17,
@@ -1033,6 +1169,18 @@ Use "Is Top N = 1" as a visual-level filter to show only top N products.`,
     ],
     sampleModel: "Products[ProductName] for ranking. TopNSelector[N] disconnected table with values like 5, 10, 20.",
     powerBINotes: "Add 'Is Top N' as a visual-level filter (set to 1) rather than a page filter. This lets each visual independently show its top N.",
+    testDataSchema: [
+      SALES_TABLE,
+      PRODUCTS_TABLE,
+      {
+        tableName: "TopNSelector",
+        filePath: "Disconnected table",
+        purpose: "Disconnected",
+        columns: [
+          { name: "N", type: "integer", description: "Number of items to show (e.g. 5, 10, 20)" },
+        ],
+      },
+    ],
   },
   {
     day: 18,
@@ -1095,6 +1243,19 @@ Q1 2024 Ending Inventory: 5,200 (last day of Q1 = March 31)`,
     ],
     sampleModel: "Inventory[StockOnHand], Inventory[Date] → Calendar[Date]. Each row is a daily snapshot per product.",
     powerBINotes: "If you SUM inventory across months without LASTDATE, you'll get wildly inflated numbers. Always use semi-additive patterns for balance/snapshot data.",
+    testDataSchema: [
+      {
+        tableName: "Inventory",
+        filePath: "Fact table (snapshot)",
+        purpose: "Fact",
+        columns: [
+          { name: "ProductID", type: "integer", description: "FK to Products" },
+          { name: "Date", type: "date", description: "Snapshot date (FK to Calendar)" },
+          { name: "StockOnHand", type: "integer", description: "Units in stock at end of day" },
+        ],
+      },
+      CALENDAR_TABLE,
+    ],
   },
   {
     day: 19,
@@ -1156,6 +1317,7 @@ Cards and tables will dynamically color based on performance.`,
     ],
     sampleModel: "Sales[TotalAmount], Calendar[Date] for time intelligence. The measure returns a string, not a number.",
     powerBINotes: "To use this: select a visual → Format pane → Data colors → fx button → Format by: Field value → select KPI Color measure. Works on cards, tables, bar charts, and more.",
+    testDataSchema: [SALES_TABLE, CALENDAR_TABLE],
   },
   {
     day: 20,
@@ -1239,6 +1401,7 @@ Variance Color: "#2ECC71" (green, above 5% target)`,
     ],
     sampleModel: "Sales[TotalAmount], SalesTargets[TargetAmount], Stores[StoreName], Calendar[Date]. All tables connected via shared dimensions.",
     powerBINotes: "Create a 'Measures' display folder to keep all dashboard measures organized. Right-click a measure → Properties → Display Folder.",
+    testDataSchema: [SALES_TABLE, SALES_TARGETS_TABLE, STORES_TABLE, CALENDAR_TABLE],
   },
 
   // ============================================================
@@ -1297,6 +1460,28 @@ When no promotion selected: shows all sales (VALUES returns all IDs)`,
     ],
     sampleModel: "Promotions[PromotionID, PromotionName]. CustomerPromotions[CustomerID, PromotionID] bridge table. Sales → Customers → CustomerPromotions.",
     powerBINotes: "TREATAS is available in Power BI Desktop and is widely used for virtual relationships. It's especially useful when connecting to shared datasets where you can't add physical relationships.",
+    testDataSchema: [
+      SALES_TABLE,
+      CUSTOMERS_TABLE,
+      {
+        tableName: "Promotions",
+        filePath: "Dimension table",
+        purpose: "Dimension",
+        columns: [
+          { name: "PromotionID", type: "integer", description: "Unique promotion identifier" },
+          { name: "PromotionName", type: "text", description: "Promotion display name" },
+        ],
+      },
+      {
+        tableName: "CustomerPromotions",
+        filePath: "Bridge table",
+        purpose: "Bridge",
+        columns: [
+          { name: "CustomerID", type: "integer", description: "FK to Customers" },
+          { name: "PromotionID", type: "integer", description: "FK to Promotions" },
+        ],
+      },
+    ],
   },
   {
     day: 22,
@@ -1370,6 +1555,7 @@ These same transformations apply to ANY measure placed in the visual.`,
     ],
     sampleModel: "Calendar[Date] for time intelligence. Any measure can be the base. Created via Tabular Editor.",
     powerBINotes: "Download Tabular Editor 3 (free version available) from the External Tools tab, or create calculation groups directly in Power BI Desktop's Model view. Changes save immediately to the model.",
+    testDataSchema: [SALES_TABLE, CALENDAR_TABLE],
   },
   {
     day: 23,
@@ -1435,6 +1621,7 @@ Fiscal YTD Sales: $2,850,000 (July 2023 through March 2024, since FY starts July
     ],
     sampleModel: "Calendar[Date] marked as date table. Sales[OrderDate] → Calendar[Date]. FiscalYear and FiscalQuarter columns on the Calendar table.",
     powerBINotes: "Rolling 12-month measures are excellent for smoothing seasonality in trend charts. They show the underlying business trajectory better than monthly figures.",
+    testDataSchema: [SALES_TABLE, CALENDAR_TABLE],
   },
   {
     day: 24,
@@ -1489,6 +1676,19 @@ When jane@company.com views (mapped to "East"):
     ],
     sampleModel: "UserSecurity[UserEmail, Region] — a mapping table. Stores[Region] is the filtered column. Filter cascades: Stores → Sales → Returns.",
     powerBINotes: "Create RLS roles in Modeling tab → Manage Roles. Add the filter expression to the Stores table. After publishing, assign users to roles in the dataset's Security settings in the Service.",
+    testDataSchema: [
+      SALES_TABLE,
+      STORES_TABLE,
+      {
+        tableName: "UserSecurity",
+        filePath: "Security table",
+        purpose: "Security",
+        columns: [
+          { name: "UserEmail", type: "text", description: "User principal name (email)" },
+          { name: "Region", type: "text", description: "Region the user is authorized to see" },
+        ],
+      },
+    ],
   },
   {
     day: 25,
@@ -1550,6 +1750,7 @@ The VAR evaluates AVERAGE once; KEEPFILTERS only scans rows already in context.`
     ],
     sampleModel: "Sales[TotalAmount] is the key column. The optimization avoids scanning ALL sales rows.",
     powerBINotes: "Install DAX Studio from the External Tools tab. Run VertiPaq Analyzer to find your biggest columns. Use Server Timings to measure query performance before and after optimization.",
+    testDataSchema: [SALES_TABLE],
   },
   {
     day: 26,
@@ -1618,6 +1819,16 @@ Level 1 Manager: "CEO Name" (looked up from ID 1)`,
     ],
     sampleModel: "Employees[EmployeeID, EmployeeName, ManagerID]. ManagerID references EmployeeID (self-referencing). CEO has BLANK ManagerID.",
     powerBINotes: "After creating level columns, build a standard hierarchy in the Fields pane: right-click → Create hierarchy → add Level1, Level2, Level3. This enables drill-down in matrix visuals.",
+    testDataSchema: [{
+      tableName: "Employees",
+      filePath: "Dimension table (self-referencing)",
+      purpose: "Dimension",
+      columns: [
+        { name: "EmployeeID", type: "integer", description: "Unique employee identifier" },
+        { name: "EmployeeName", type: "text", description: "Employee full name" },
+        { name: "ManagerID", type: "integer", description: "FK to Employees (self-referencing; BLANK for CEO)" },
+      ],
+    }],
   },
   {
     day: 27,
@@ -1684,6 +1895,7 @@ Clothing: % of Visible Total = 44%, Category Total = $1,190,000`,
     ],
     sampleModel: "Products[Category], Products[Subcategory]. Sales[TotalAmount]. Slicers may filter regions, dates, etc.",
     powerBINotes: "ALLSELECTED is essential for conditional formatting that compares against the visual total, not the grand total. It respects what the user has filtered to.",
+    testDataSchema: [SALES_TABLE, PRODUCTS_TABLE],
   },
   {
     day: 28,
@@ -1747,6 +1959,17 @@ With 25%: Adjusted Revenue: $5,312,500`,
     ],
     sampleModel: "'Price Increase %' disconnected table with one column. Sales[TotalAmount] for base revenue.",
     powerBINotes: "Create what-if parameters via Modeling → New Parameter. Power BI auto-generates the table, measure, and slicer. You can customize the DAX afterward.",
+    testDataSchema: [
+      SALES_TABLE,
+      {
+        tableName: "Price Increase %",
+        filePath: "Disconnected table (what-if parameter)",
+        purpose: "Disconnected",
+        columns: [
+          { name: "Price Increase % Value", type: "decimal", description: "Selected percentage increase (e.g. 0.05, 0.10, 0.15)" },
+        ],
+      },
+    ],
   },
   {
     day: 29,
@@ -1798,6 +2021,22 @@ The switch is transparent to the user.`,
     ],
     sampleModel: "Sales (detail fact, DirectQuery). SalesAgg (pre-aggregated, Import). Products[ProductName] for granularity detection.",
     powerBINotes: "Set up aggregation tables in Model view: select the agg table → Manage aggregations. Power BI auto-routes queries. Use this DAX only when you need custom fallback logic beyond what auto-aggregation provides.",
+    testDataSchema: [
+      SALES_TABLE,
+      PRODUCTS_TABLE,
+      {
+        tableName: "SalesAgg",
+        filePath: "Aggregation table (Import mode)",
+        purpose: "Fact",
+        columns: [
+          { name: "Category", type: "text", description: "Product category (aggregated grain)" },
+          { name: "MonthNumber", type: "integer", description: "Month number" },
+          { name: "Year", type: "integer", description: "Year" },
+          { name: "TotalAmount", type: "currency", description: "Pre-aggregated sum of sales" },
+          { name: "TotalQuantity", type: "integer", description: "Pre-aggregated sum of quantity" },
+        ],
+      },
+    ],
   },
   {
     day: 30,
@@ -1901,6 +2140,7 @@ KPI Status Color: "#2ECC71" (green — above 10% growth)`,
     ],
     sampleModel: "Full model: Sales, Products, Customers, Stores, Calendar, SalesTargets, Returns. All relationships active.",
     powerBINotes: "Congratulations! This KPI set is the foundation of executive dashboards. Place Total Revenue and Trend Arrow in a card, Revenue vs LY with KPI Status Color in a conditional-formatted card, and Revenue Rank in a matrix.",
+    testDataSchema: [SALES_TABLE, PRODUCTS_TABLE, CUSTOMERS_TABLE, STORES_TABLE, CALENDAR_TABLE, SALES_TARGETS_TABLE, RETURNS_TABLE],
   },
 ];
 

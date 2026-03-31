@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useState, useEffect } from "react";
 import CodeEditor from "@/components/CodeEditor";
 import TierBadge from "@/components/TierBadge";
+import TestDataSchemaPanel from "@/components/TestDataSchemaPanel";
 import { getDayInfo } from "@/lib/curriculum";
 import { getChallenge, Challenge } from "@/lib/challenges";
 import { validateCode, ValidationResult } from "@/lib/validate";
@@ -19,6 +20,7 @@ export default function DayPageClient() {
   const [result, setResult] = useState<ValidationResult | null>(null);
   const [showHints, setShowHints] = useState(false);
   const [showSolution, setShowSolution] = useState(false);
+  const [showSchema, setShowSchema] = useState(false);
 
   useEffect(() => {
     if (challenge) {
@@ -26,6 +28,7 @@ export default function DayPageClient() {
       setResult(null);
       setShowHints(false);
       setShowSolution(false);
+      setShowSchema(false);
     }
   }, [dayNum, challenge]);
 
@@ -195,8 +198,16 @@ export default function DayPageClient() {
           </div>
         )}
 
-        {/* Hints & Solution */}
+        {/* Hints, Schema & Solution */}
         <div className="flex gap-3">
+          {challenge.testDataSchema && challenge.testDataSchema.length > 0 && (
+            <button
+              onClick={() => setShowSchema(!showSchema)}
+              className="px-3 py-1.5 text-sm bg-gray-800 hover:bg-gray-700 rounded-lg border border-gray-600 transition"
+            >
+              {showSchema ? "Hide Schema" : "Show Schema"}
+            </button>
+          )}
           <button
             onClick={() => setShowHints(!showHints)}
             className="px-3 py-1.5 text-sm bg-gray-800 hover:bg-gray-700 rounded-lg border border-gray-600 transition"
@@ -210,6 +221,10 @@ export default function DayPageClient() {
             {showSolution ? "Hide Solution" : "Show Solution"}
           </button>
         </div>
+
+        {showSchema && challenge.testDataSchema && (
+          <TestDataSchemaPanel tables={challenge.testDataSchema} />
+        )}
 
         {showHints && challenge.hints?.length > 0 && (
           <div className="p-4 rounded-lg bg-gray-900 border border-gray-700 space-y-2">
