@@ -21,6 +21,7 @@ export default function DayPageClient() {
   const [showHints, setShowHints] = useState(false);
   const [showSolution, setShowSolution] = useState(false);
   const [showSchema, setShowSchema] = useState(false);
+  const [isCompleted, setIsCompleted] = useState(false);
 
   useEffect(() => {
     if (challenge) {
@@ -30,7 +31,22 @@ export default function DayPageClient() {
       setShowSolution(false);
       setShowSchema(false);
     }
+    const stored: number[] = JSON.parse(localStorage.getItem("pbi_completedDays") || "[]");
+    setIsCompleted(stored.includes(dayNum));
   }, [dayNum, challenge]);
+
+  function toggleCompleted() {
+    const stored: number[] = JSON.parse(localStorage.getItem("pbi_completedDays") || "[]");
+    if (stored.includes(dayNum)) {
+      const updated = stored.filter((d) => d !== dayNum);
+      localStorage.setItem("pbi_completedDays", JSON.stringify(updated));
+      setIsCompleted(false);
+    } else {
+      stored.push(dayNum);
+      localStorage.setItem("pbi_completedDays", JSON.stringify(stored));
+      setIsCompleted(true);
+    }
+  }
 
   function handleSubmit() {
     if (!challenge) return;
@@ -42,6 +58,7 @@ export default function DayPageClient() {
       if (!stored.includes(dayNum)) {
         stored.push(dayNum);
         localStorage.setItem("pbi_completedDays", JSON.stringify(stored));
+        setIsCompleted(true);
       }
     }
   }
@@ -78,6 +95,19 @@ export default function DayPageClient() {
           Reset Code
         </button>
       </div>
+
+      {/* Completion checkbox */}
+      <label className="flex items-center gap-2 mb-4 cursor-pointer group w-fit">
+        <input
+          type="checkbox"
+          checked={isCompleted}
+          onChange={toggleCompleted}
+          className="w-4 h-4 rounded border-gray-600 bg-gray-800 text-[#487a7b] accent-[#487a7b] cursor-pointer"
+        />
+        <span className={`text-sm ${isCompleted ? "text-[#487a7b]" : "text-gray-500 group-hover:text-gray-300"} transition`}>
+          {isCompleted ? "Completed" : "Mark as complete"}
+        </span>
+      </label>
 
       <div className="space-y-6">
         {/* Title & Concepts */}
