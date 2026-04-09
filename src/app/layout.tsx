@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import ResourceMenu from "@/components/ResourceMenu";
+import ScoringRulesPanel from "@/components/ScoringRulesPanel";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -25,6 +26,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <Link href="/curriculum" className="text-gray-400 hover:text-white transition">
                 Curriculum
               </Link>
+              <ScoringRulesPanel />
               <ResourceMenu />
             </div>
           </div>
